@@ -30,7 +30,7 @@ import jms4s.jms.utils.SharedConnection
 import jms4s.model.SessionType
 import org.typelevel.log4cats.Logger
 
-import javax.jms.Session
+import javax.jms.{ MessageProducer, Session }
 import scala.concurrent.duration.FiniteDuration
 
 class JmsContext[F[_]: Async: Logger](private val sharedConnection: SharedConnection, private val session: Session) {
@@ -52,14 +52,25 @@ class JmsContext[F[_]: Async: Logger](private val sharedConnection: SharedConnec
       )
       .map(newSession => new JmsContext(sharedConnection, newSession))
 
-  def send(destinationName: DestinationName, message: JmsMessage): F[Unit] =
+  def createProducer(disabledMessageId: Boolean): MessageProducer = {
+    val producer = session.createProducer(null)
+    producer.setDisableMessageID(disabledMessageId)
+    producer
+  }
+
+  def send(destinationName: DestinationName, message: JmsMessage): F[Option[String]] =
+    send(destinationName, message, false)
+
+  def send(destinationName: DestinationName, message: JmsMessage, disabledMessageId: Boolean): F[Option[String]] =
     for {
       destination <- createDestination(destinationName)
-      p           <- Sync[F].blocking(session.createProducer(null))
+      p           <- Sync[F].blocking(createProducer(disabledMessageId))
       _           <- Sync[F].blocking(p.send(destination.wrapped, message.wrapped))
-    } yield ()
+      messageId   <- Sync[F].pure(Option(message.wrapped.getJMSMessageID))
+    } yield messageId
 
-//  def send(destinationName: DestinationName, message: JmsMessage, delay: FiniteDuration): F[Unit] =
+  // TODO (RW) the following is commented out as JMS 1.1 does not support delivery delays
+  //  def send(destinationName: DestinationName, message: JmsMessage, delay: FiniteDuration): F[Unit] =
 //    for {
 //      destination <- createDestination(destinationName)
 //      p           <- Sync[F].blocking(session.createProducer(null))

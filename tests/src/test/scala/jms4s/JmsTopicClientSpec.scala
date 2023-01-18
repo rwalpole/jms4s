@@ -69,12 +69,14 @@ trait JmsTopicClientSpec extends AsyncFreeSpec with AsyncIOSpec with Jms4sBaseSp
     res.use {
       case (producer, consumer, bodies, messages) =>
         for {
-          _                <- messages.toNel.fold(IO.unit)(ms => producer.sendN(messageFactory(ms, topicName1)))
+          messageIds <- messages.toNel.fold(IO.pure(List.empty[Option[String]]))(ms =>
+                         producer.sendN(messageFactory(ms, topicName1)).map(_.toList)
+                       )
           _                <- logger.info(s"Pushed ${messages.size} messages.")
           _                <- logger.info(s"Consumer to Producer started.\nCollecting messages from output queue...")
           received         <- Ref.of[IO, Set[String]](Set())
           receivedMessages <- receiveUntil(consumer, received, nMessages).timeout(timeout) >> received.get
-        } yield assert(receivedMessages == bodies)
+        } yield assert(messages.size == messageIds.size && receivedMessages == bodies)
     }
   }
 
