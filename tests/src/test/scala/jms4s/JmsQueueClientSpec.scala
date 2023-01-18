@@ -303,7 +303,7 @@ trait JmsQueueClientSpec extends AsyncFreeSpec with AsyncIOSpec with Jms4sBaseSp
           _ <- (0 until poolSize).toList.traverse_ { _ =>
                 producer
                   .send(_ => IO.raiseError(new RuntimeException("failed producing")))
-                  .handleErrorWith(logger.error(_)(""))
+                  .handleErrorWith(logger.error(_)("").map(_ => None))
               }
           _ <- producer
                 .send(messageFactory(message, outputQueueName1))

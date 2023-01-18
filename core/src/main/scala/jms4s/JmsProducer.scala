@@ -33,7 +33,7 @@ trait JmsProducer[F[_]] {
 
   def sendN(
     messageFactory: MessageFactory[F] => F[NonEmptyList[(JmsMessage, DestinationName)]]
-  ): F[Unit]
+  ): F[NonEmptyList[Option[String]]]
 
 //  def sendNWithDelay(
 //    messageFactory: MessageFactory[F] => F[NonEmptyList[(JmsMessage, (DestinationName, Option[FiniteDuration]))]]
@@ -43,7 +43,7 @@ trait JmsProducer[F[_]] {
 //    messageFactory: MessageFactory[F] => F[(JmsMessage, (DestinationName, Option[FiniteDuration]))]
 //  ): F[Unit]
 
-  def send(messageFactory: MessageFactory[F] => F[(JmsMessage, DestinationName)]): F[Unit]
+  def send(messageFactory: MessageFactory[F] => F[(JmsMessage, DestinationName)]): F[Option[String]]
 
 }
 
@@ -76,7 +76,8 @@ object JmsProducer {
 
   private[jms4s] def make[F[_]: Async](
     context: JmsContext[F],
-    concurrencyLevel: Int
+    concurrencyLevel: Int,
+    disabledMessageId: Boolean = false
   ): Resource[F, JmsProducer[F]] =
     for {
       pool <- ContextPool.create(context, concurrencyLevel)
@@ -84,37 +85,42 @@ object JmsProducer {
 
       override def sendN(
         f: MessageFactory[F] => F[NonEmptyList[(JmsMessage, DestinationName)]]
-      ): F[Unit] =
+      ): F[NonEmptyList[Option[String]]] =
         pool.acquireAndUseContext {
           case (ctx, mf) =>
             for {
               messagesWithDestinations <- f(mf)
+              messageIds <- messagesWithDestinations.traverse {
+                             case (message, destinationName) => ctx.send(destinationName, message, disabledMessageId)
+                           }
               _ <- messagesWithDestinations.traverse_ {
-                    case (message, destinationName) => ctx.send(destinationName, message)
+                    case (message, destinationName) => ctx.send(destinationName, message, disabledMessageId)
                   }
-            } yield ()
+            } yield messageIds
         }
 
+      // TODO(RW) commented out as delivery delay not supported in JMS 1.1
 //      override def sendNWithDelay(
 //        f: MessageFactory[F] => F[NonEmptyList[(JmsMessage, (DestinationName, Option[FiniteDuration]))]]
-//      ): F[Unit] =
+//      ): F[Option[String]] =
 //        pool.acquireAndUseContext {
 //          case (ctx, mf) =>
 //            for {
 //              messagesWithDestinationsAndDelayes <- f(mf)
-//              _ <- messagesWithDestinationsAndDelayes.traverse_ {
+//              messageIds <- messagesWithDestinationsAndDelayes.traverse_ {
 //                    case (message, (destinatioName, duration)) =>
-//                      duration.fold(ctx.send(destinatioName, message))(delay =>
-//                        ctx.send(destinatioName, message, delay)
+//                      duration.fold(ctx.send(destinatioName, message, disabledMessageId))(delay =>
+//                        ctx.send(destinatioName, message, delay, disabledMessageId)
 //                      )
 //                  }
 //
-//            } yield ()
+//            } yield messageIds
 //        }
-//
+
+      // TODO(RW) commented out as delivery delay not supported in JMS 1.1
 //      override def sendWithDelay(
 //        f: MessageFactory[F] => F[(JmsMessage, (DestinationName, Option[FiniteDuration]))]
-//      ): F[Unit] =
+//      ): F[Option[String]] =
 //        pool.acquireAndUseContext {
 //          case (ctx, mf) =>
 //            for {
@@ -123,13 +129,13 @@ object JmsProducer {
 //            } yield ()
 //        }
 
-      override def send(f: MessageFactory[F] => F[(JmsMessage, DestinationName)]): F[Unit] =
+      override def send(f: MessageFactory[F] => F[(JmsMessage, DestinationName)]): F[Option[String]] =
         pool.acquireAndUseContext {
           case (ctx, mf) =>
             for {
               (message, destination) <- f(mf)
-              _                      <- ctx.send(destination, message)
-            } yield ()
+              messageId              <- ctx.send(destination, message, disabledMessageId)
+            } yield messageId
         }
 
     }
