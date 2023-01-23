@@ -37,6 +37,7 @@ import jms4s.jms.JmsContext
 import jms4s.jms.utils.SharedConnection
 import org.typelevel.log4cats.Logger
 import software.amazon.awssdk.endpoints
+import software.amazon.awssdk.regions.Region
 
 import java.net.URI
 import java.util.concurrent.CompletableFuture
@@ -83,6 +84,7 @@ object simpleQueueService {
                         .builder()
                         .endpointProvider(endpointProvider)
                         .credentialsProvider(credentialsProvider)
+                        .region(Region.US_WEST_1)
 
                       val factory = new SQSConnectionFactory(
                         providerConfiguration,
