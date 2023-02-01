@@ -19,6 +19,8 @@ ThisBuild / publishGithubUser := "al333z"
 ThisBuild / githubWorkflowJavaVersions := Seq(Java18, Java11)
 ThisBuild / baseVersion := "0.0.1"
 
+ThisBuild / version := "0.0.1-COMBINED-SNAPSHOT"
+
 //CI definition
 val MicrositesCond = s"matrix.scala == '$Scala212'"
 
