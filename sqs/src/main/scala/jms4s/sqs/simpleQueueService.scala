@@ -84,7 +84,7 @@ object simpleQueueService {
                         .builder()
                         .endpointProvider(endpointProvider)
                         .credentialsProvider(credentialsProvider)
-                        .region(Region.US_WEST_1)
+                        .region(Region.EU_WEST_2)
 
                       val factory = new SQSConnectionFactory(
                         providerConfiguration,
