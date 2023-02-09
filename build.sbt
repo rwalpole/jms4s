@@ -5,11 +5,10 @@ val Scala212 = "2.12.17"
 val Java18   = JavaSpec(Adopt, "8")
 val Java11   = JavaSpec(Adopt, "11")
 
-enablePlugins(SonatypeCiReleasePlugin)
+//enablePlugins(SonatypeCiReleasePlugin)
 Global / onChangedBuildSource := ReloadOnSourceChanges
 ThisBuild / mimaFailOnProblem := false
 ThisBuild / mimaFailOnNoPrevious := false
-
 ThisBuild / scalaVersion := Scala213
 ThisBuild / crossScalaVersions := Seq(Scala213, Scala212)
 ThisBuild / organization := "dev.fpinbo"
@@ -18,6 +17,16 @@ ThisBuild / publishFullName := "Alessandro Zoffoli"
 ThisBuild / publishGithubUser := "al333z"
 ThisBuild / githubWorkflowJavaVersions := Seq(Java18, Java11)
 ThisBuild / baseVersion := "0.0.1"
+ThisBuild / publishMavenStyle := true
+ThisBuild / publishTo := Some(
+  "GitHub Package Registry" at "https://maven.pkg.github.com/rwalpole/jms4s"
+)
+ThisBuild / credentials += Credentials(
+  "GitHub Package Registry", // realm
+  "maven.pkg.github.com", // host
+  "rwalpole", // user
+  sys.env.getOrElse("GITHUB_TOKEN", "abc123") // password
+)
 
 //CI definition
 val MicrositesCond = s"matrix.scala == '$Scala212'"
